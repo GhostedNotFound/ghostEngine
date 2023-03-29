@@ -1,0 +1,87 @@
+Hello, and thank you for choosing Ghost Engine!
+
+Ghost Engine is managed by Ghost, at Ghost Only#7451.
+
+This file is to document every function, variable, and method Ghost Engine uses/provides.
+
+Some quick pointers before we start:
+    - Any function starting with _ is used internally by the engine, and shouldn't be modified UNLESS you know what you are doing! (A different rule applies to variables.)
+
+    - The engineAssets folder is also used internally by the engine, although if you don't screw up your code, you should be fine deleting it.
+
+    - Any function starting with exp_ is an experimental function, and may be buggy.
+
+    - This engine uses LOVE (obviously) as it's framework. Some LOVE functions are used by the engine. (such as love.draw)
+    
+    - This engine is moddable without having to touch the main.lua file. Make a folder called _books and put any lua file in it.
+
+
+
+Variables:
+
+TICKS = Increment after every successful love.draw() function.
+
+_SCREENWIDTH = Width of the current window.
+
+_SCREENHEIGHT = Height of the current window.
+
+_SEED = The seed determined by the current time and a lot of math.
+    math.ceil(((os.time() * math.random(-5, 5)) * os.time() / 1000000) - os.clock())
+
+
+
+Functions:
+
+Parameters for functions will be surrounded by (), and seperated with a comma.
+
+RegenerateRandomness() = Changes the _SEED value based on the current time, and throws away the first 3 random numbers.
+    No requirements.
+    Returns nothing / nil.
+    No example neccesary.
+
+file_exists(name) = Checks if name is a file, and returns true if... true.
+    Requirements:
+        (name) = String
+    Returns:
+        true (if file exists)
+        false (if file doesn't exist or (name) is not a String)
+    Example:
+        file_exists("documentation") -- Returns true
+        file_exists("notarealfile.apk") -- Returns false
+
+CreateUI(id, typeof, data) = Creates a UI in the UILayer.
+    Requirements:
+        (id) = String
+        (typeof) = String, Must be "text", "image", "rect", or "circle"
+        (data) = Table, 
+            {x=0, y=0, t="text", i="path/to/image.png", clr={1,1,1,1}, mode="line", w=1, h=1, rad=10, seg=1}
+        Valid parameters, especially in (data).
+    Returns:
+        table containing the created UI's data (If successful).
+        table containing error UI's data (If failure).
+    Examples:
+        local txt = CreateUI("msg", "text", {x=_SCREENWIDTH/2, y=_SCREENHEIGHT/2,t="Welcome to Ghost Engine for LOVE!"}) -- X and Y can be left blank, they will be filled in by the engine.
+        local img = CreateUI("img", "image", {i="engineAssets/noImage.png"})
+        local rect = CreateUI("rect", "rect", {mode="fill", w=10, h=10}) -- MODE can be left blank, it will be replaced with "line"
+        local circle = CreateUI("circle", "circle", {rad=35, seg=20}) -- SEG can be left blank, it will be replaced with 50. The more segments, the laggier the game.
+    Notes:
+        If a UI fails to be created correctly, it will be replaced with an error text UI object detailing what went wrong.
+        Most values for the data table can be left blank.
+        data.mode must be "fill" or "line".
+
+
+
+Common Issues & Internal Engine Errors:
+
+E404: A game.lua file wasn't detected or couldn't be loaded via require (although its more likely you'll get a LOVE error or E403 if it couldn't be loaded).
+
+E403: A game.lua file WAS detected, but couldn't be read. Is the file permission-locked or blank?
+
+E000: Testing error. The _testingError variable is true on boot, or the error was generated via the simFakeError function.
+
+
+
+Credits:
+
+Adrien - Literally made the engine, I mean cmon, who wouldn't give themselves credit?
+James - "Helped" with inspiration
