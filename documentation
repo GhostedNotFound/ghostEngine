@@ -1,17 +1,17 @@
-Ver0.2.7
+ Ver0.2.7
 
 Hello, and thank you for choosing Ghost Engine!
 
-Ghost Engine is managed by Adrien, at Ghost Only#7451.
+Ghost Engine is managed by Ghost, at Ghost Only#7451.
 
-Ghost Engine is incomplete and buggy, so if you find any bugs, send em' over to support!
+Ghost Engine is incomplete and buggy, so keep that in mind!
 
 This file is to document every function, variable, and method Ghost Engine uses/provides.
 
 Some quick pointers before we start:
     - Any function starting with _ is used internally by the engine, and shouldn't be modified UNLESS you know what you are doing! (A different rule applies to variables.)
 
-    - The engineAssets folder is also used internally by the engine, although if you don't screw up your code, you should be fine deleting it.
+    - The engineAssets folder is also used internally by the engine, although if you don't screw up  code, you should be fine deleting it.
 
     - Any function starting with exp_ is an experimental function, and may be buggy.
 
@@ -29,7 +29,7 @@ Variables:
 
 GhostEngine = Contains functions that Ghost Engine calls. Such as frame() and drawCustomTypes()
     .frame() = Called in every love.update() loop. Use global function to utilize it.
-    .drawCustomTypes() = Use to make your own types that can be drawn. It is suggested that this is used in a book / mod
+    .drawCustomTypes() = Use to make  own types that can be drawn. It is suggested that this is used in a book / mod
 
 TICKS = Increment after every successful GhostEngine.frame().
 
@@ -143,4 +143,4 @@ E403: A game.lua file WAS detected, but couldn't be read. Is the file permission
 
 E000: Testing error. The _testingError variable is true on boot, or the error was generated via the simFakeError function.
 
-E100: Your system is incompatiable with Ghost Engine. We plan for OS X support, but any other platform, such as Android, will never have support.
+E100:  system is incompatiable with Ghost Engine. We plan for OS X support, but any other platform, such as Android, will never have support. 
