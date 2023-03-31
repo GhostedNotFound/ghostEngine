@@ -135,7 +135,7 @@ A: No-ish. 99% of functions will only have their purpose changed. Experimental f
     If a game uses an old experimental function, download the allExp.lua book and place it in the _books directory, 
     assuming the name of the experimental function has changed. (you are open-source, this is already installed)
 
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 E404: A game.lua file wasn't detected or couldn't be loaded via require (although its more likely you'll get a LOVE error or E403 if it couldn't be loaded).
 
@@ -144,10 +144,3 @@ E403: A game.lua file WAS detected, but couldn't be read. Is the file permission
 E000: Testing error. The _testingError variable is true on boot, or the error was generated via the simFakeError function.
 
 E100: Your system is incompatiable with Ghost Engine. We plan for OS X support, but any other platform, such as Android, will never have support.
-
-
-
-Credits:
-
-Adrien - Literally made the engine, I mean cmon, who wouldn't give themselves credit?
-James - "Helped" with inspiration
