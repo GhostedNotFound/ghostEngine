@@ -1,6 +1,8 @@
+Ver0.1.0
+
 Hello, and thank you for choosing Ghost Engine!
 
-Ghost Engine is managed by Ghost, at Ghost Only#7451.
+Ghost Engine is managed by Adrien, at Ghost Only#7451.
 
 This file is to document every function, variable, and method Ghost Engine uses/provides.
 
@@ -12,8 +14,10 @@ Some quick pointers before we start:
     - Any function starting with exp_ is an experimental function, and may be buggy.
 
     - This engine uses LOVE (obviously) as it's framework. Some LOVE functions are used by the engine. (such as love.draw)
-    
+
     - This engine is moddable without having to touch the main.lua file. Make a folder called _books and put any lua file in it.
+
+    - This engine is backwards-compatiable with older versions, and "books" can be used to be forwards-compatiable.
 
 
 
@@ -33,13 +37,15 @@ _SEED = The seed determined by the current time and a lot of math.
 Functions:
 
 Parameters for functions will be surrounded by (), and seperated with a comma.
+Experimental functions (for this version, see top of file) begin with exp_
+Internal functions are not listed.
 
 RegenerateRandomness() = Changes the _SEED value based on the current time, and throws away the first 3 random numbers.
     No requirements.
     Returns nothing / nil.
     No example neccesary.
 
-file_exists(name) = Checks if name is a file, and returns true if... true.
+file_exists(name) = Checks if (name) is a file, and returns true if... true.
     Requirements:
         (name) = String
     Returns:
@@ -48,6 +54,8 @@ file_exists(name) = Checks if name is a file, and returns true if... true.
     Example:
         file_exists("documentation") -- Returns true
         file_exists("notarealfile.apk") -- Returns false
+    Notes:
+        For some reason, doesn't entirely work on Windows. Further testing must be done to confirm.
 
 CreateUI(id, typeof, data) = Creates a UI in the UILayer.
     Requirements:
@@ -73,11 +81,34 @@ CreateUI(id, typeof, data) = Creates a UI in the UILayer.
 
 Common Issues & Internal Engine Errors:
 
+Q: I got a warning about Windows being incompatiable!
+A: Windows has trouble detecting if a file is in a directory as file_exists() doesn't work for some reason.
+    Therefore, the game.lua file cannot be detected and may break some games that use file_exists().
+
+Q: Random black squares and images keep appearing in the "main menu" / engineAssets folder!
+A: A UI is being made for Ghost Engine, that will allow you to choose a file if none can be found,
+    this will help counteract bugs relating to file_exists() on Windows, and will make Ghost Engine runnable by itself!
+
+Q: When Ghost Engine loaded my game, it crashed!
+A: A bug occurred that Ghost Engine caught but couldn't resolve. Look for a crash.log file.
+
+Q: My game crashed after adding a "book" in _books!
+A: Check the "book" for issues in the code and/or remove it. If that doesn't resolve the problem, delete this copy of Ghost Engine and reinstall a new copy.
+
+Q: Will updates change names of functions, variables, etc?
+A: No-ish. 99% of functions will only have their purpose changed. Experimental functions, however, can and will have name changes.
+    If a game uses an old experimental function, download the allExp.lua book and place it in the _books directory, 
+    assuming the name of the experimental function has changed.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
 E404: A game.lua file wasn't detected or couldn't be loaded via require (although its more likely you'll get a LOVE error or E403 if it couldn't be loaded).
 
 E403: A game.lua file WAS detected, but couldn't be read. Is the file permission-locked or blank?
 
 E000: Testing error. The _testingError variable is true on boot, or the error was generated via the simFakeError function.
+
+E100: Your system is incompatiable with Ghost Engine. We plan for OS X support, but any other platform, such as Android, will never have support.
 
 
 
