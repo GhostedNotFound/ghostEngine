@@ -151,6 +151,16 @@ local function _drawUiLayer()
     end
 end
 
+local function _drawOtherLayers()
+    for key, value in pairs(Layers) do
+        if key == "BackgroundLayer" or key == "ForegroundLayer" or key == "UILayer" then
+        else
+            _doPredeterminedTypes()
+            GhostEngine.drawCustomTypes(key, value)
+        end
+    end
+end
+
 -- Define global variables & functions:
 
 Layers = {BackgroundLayer = {},ForegroundLayer = {},UILayer = {}}
@@ -314,6 +324,7 @@ function love.draw()
     _SCREENHEIGHT = love.graphics.getHeight()
     _layersExist()
     _drawBackgroundLayer()
+    _drawOtherLayers()
     _drawForegroundLayer()
     _drawUiLayer()
 end
