@@ -155,8 +155,10 @@ local function _drawOtherLayers()
     for key, value in pairs(Layers) do
         if key == "BackgroundLayer" or key == "ForegroundLayer" or key == "UILayer" then
         else
-            _doPredeterminedTypes()
-            GhostEngine.drawCustomTypes(key, value)
+            for key, value in pairs(Layers[key]) do
+                _doPredeterminedTypes(key, value)
+                GhostEngine.drawCustomTypes(key, value) 
+            end
         end
     end
 end
