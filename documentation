@@ -1,8 +1,10 @@
-Ver0.1.0
+Ver0.2.7
 
 Hello, and thank you for choosing Ghost Engine!
 
 Ghost Engine is managed by Adrien, at Ghost Only#7451.
+
+Ghost Engine is incomplete and buggy, so if you find any bugs, send em' over to support!
 
 This file is to document every function, variable, and method Ghost Engine uses/provides.
 
@@ -19,11 +21,17 @@ Some quick pointers before we start:
 
     - This engine is backwards-compatiable with older versions, and "books" can be used to be forwards-compatiable.
 
+    - This build has the _books folder inserted by default (did you install open-source?) with the allExperimentalFunctions.lua file pre-installed.
+
 
 
 Variables:
 
-TICKS = Increment after every successful love.draw() function.
+GhostEngine = Contains functions that Ghost Engine calls. Such as frame() and drawCustomTypes()
+    .frame() = Called in every love.update() loop. Use global function to utilize it.
+    .drawCustomTypes() = Use to make your own types that can be drawn. It is suggested that this is used in a book / mod
+
+TICKS = Increment after every successful GhostEngine.frame().
 
 _SCREENWIDTH = Width of the current window.
 
@@ -31,6 +39,12 @@ _SCREENHEIGHT = Height of the current window.
 
 _SEED = The seed determined by the current time and a lot of math.
     math.ceil(((os.time() * math.random(-5, 5)) * os.time() / 1000000) - os.clock())
+
+FontSize = Self-explanatory.
+
+CurrentFont = Currently has no use.
+
+Layers = Table that contains every user-generated and pre-generated Layer. Use [insert function here] instead to get a specific layer.
 
 
 
@@ -45,6 +59,14 @@ RegenerateRandomness() = Changes the _SEED value based on the current time, and 
     Returns nothing / nil.
     No example neccesary.
 
+CreateNewLayer(l, merge) = Creates a new layer with name (l), if merge is true, any layer with the same name becomes this layer.
+    Requirements:
+        (l) = String, unique unless (merge) is true
+    Returns nothing / nil.
+    Example:
+        CreateNewLayer("NewLayer") -- Creates a new layer named "NewLayer" in the Layers table
+        CreateNewLayer("NewLayer", true) -- Merges the previously created layer with this layer.
+
 file_exists(name) = Checks if (name) is a file, and returns true if... true.
     Requirements:
         (name) = String
@@ -57,13 +79,25 @@ file_exists(name) = Checks if (name) is a file, and returns true if... true.
     Notes:
         For some reason, doesn't entirely work on Windows. Further testing must be done to confirm.
 
-CreateUI(id, typeof, data) = Creates a UI in the UILayer.
+CreateObject(layer, id, typeof, data) = Creates an Object in Layer (layer)
     Requirements:
-        (id) = String
+        (layer) = String, must exist
+        (id) = String, must be unique
         (typeof) = String, Must be "text", "image", "rect", or "circle"
         (data) = Table, 
             {x=0, y=0, t="text", i="path/to/image.png", clr={1,1,1,1}, mode="line", w=1, h=1, rad=10, seg=1}
-        Valid parameters, especially in (data).
+    Returns:
+        table containing the created Object's data (If successful).
+        table containing error UI's data (If failure).
+    Examples:
+        See CreateUI() for similar examples.
+
+CreateUI(id, typeof, data) = Creates a UIObject in the UILayer.
+    Requirements:
+        (id) = String, must be unique
+        (typeof) = String, Must be "text", "image", "rect", or "circle"
+        (data) = Table, 
+            {x=0, y=0, t="text", i="path/to/image.png", clr={1,1,1,1}, mode="line", w=1, h=1, rad=10, seg=1}
     Returns:
         table containing the created UI's data (If successful).
         table containing error UI's data (If failure).
@@ -77,7 +111,11 @@ CreateUI(id, typeof, data) = Creates a UI in the UILayer.
         Most values for the data table can be left blank.
         data.mode must be "fill" or "line".
 
-
+DestroyUI(id) = Destroys any UI with the name (id)
+    Requirements:
+        (id) = String, must be unique
+    Returns nothing / nil.
+    No example neccessary. (I hope.)
 
 Common Issues & Internal Engine Errors:
 
@@ -89,16 +127,13 @@ Q: Random black squares and images keep appearing in the "main menu" / engineAss
 A: A UI is being made for Ghost Engine, that will allow you to choose a file if none can be found,
     this will help counteract bugs relating to file_exists() on Windows, and will make Ghost Engine runnable by itself!
 
-Q: When Ghost Engine loaded my game, it crashed!
-A: A bug occurred that Ghost Engine caught but couldn't resolve. Look for a crash.log file.
-
-Q: My game crashed after adding a "book" in _books!
-A: Check the "book" for issues in the code and/or remove it. If that doesn't resolve the problem, delete this copy of Ghost Engine and reinstall a new copy.
+Q: Ghost Engine halted after adding a "book" in _books!
+A: Check the "book" for issues in the code and/or remove it. If that doesn't resolve the problem, delete this copy of Ghost Engine and reinstall a new copy. It may also help to send a screenshot to support first.
 
 Q: Will updates change names of functions, variables, etc?
 A: No-ish. 99% of functions will only have their purpose changed. Experimental functions, however, can and will have name changes.
     If a game uses an old experimental function, download the allExp.lua book and place it in the _books directory, 
-    assuming the name of the experimental function has changed.
+    assuming the name of the experimental function has changed. (you are open-source, this is already installed)
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
