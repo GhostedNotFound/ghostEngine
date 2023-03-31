@@ -209,7 +209,7 @@ function file_exists(name)
     return true
 end
 
-function exp_CreateObject(layer, id, typeOf, data)
+function CreateObject(layer, id, typeOf, data)
     local validType = false
     for _, value in ipairs(validTypes) do
         if value == typeOf then
