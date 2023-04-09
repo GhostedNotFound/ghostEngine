@@ -1,4 +1,4 @@
-# Ghost Engine (0.2.7)
+# Ghost Engine (0.2.8)
 
 Ghost Engine is a somewhat lightweight engine that uses the LOVE framework, commonly used by Uncoded Studios to make game development easier.
 
