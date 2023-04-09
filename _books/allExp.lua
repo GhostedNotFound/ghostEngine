@@ -1,13 +1,19 @@
-function exp_CopyLayer(fromLayer, toLayer, deleteFromLayer)
-    if Layers[fromLayer] and Layers[toLayer] then
-        print("Copying items from layer",fromLayer,"to layer",toLayer)
-        Layers[toLayer] = Layers[fromLayer]
+ghostengine.log("Adding old experimental functions.")
+
+ghostengine.exp_CopyLayer = function (fromLayer, toLayer, deleteFromLayer)
+    if ghostengine.layers[fromLayer] and ghostengine.layers[toLayer] then
+        ghostengine.log("Copying items from layer "..fromLayer.." to layer "..toLayer)
+        ghostengine.layers[toLayer] = ghostengine.layers[fromLayer]
         if deleteFromLayer then
-            print("Deleted Layers."..fromLayer)
-            Layers[fromLayer] = nil
+            ghostengine.log("Deleted ghostengine.layers."..fromLayer)
+            ghostengine.layers[fromLayer] = nil
         end
-        return Layers[toLayer]
+        return ghostengine.layers[toLayer]
     else
-        print("Attempted to copy from layer", fromLayer , "to layer", toLayer, "and failed.")
+        ghostengine.log("Attempted to copy from layer ".. fromLayer .." to layer "..toLayer.." and failed.")
     end
 end
+
+ghostengine.log("ghostengine.exp_CopyLayer: OK")
+
+ghostengine.log("Successfully added all experimental functions.")

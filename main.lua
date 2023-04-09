@@ -14,24 +14,32 @@
     If not, see https://opensource.org/license/mit/.
 ]]--
 
-print("Hello, World!")
+local lume = require "lume"
+
+love.filesystem.setIdentity("Ghost Engine")
+
+love.filesystem.write("test.txt", "Hi")
+
+ghostengine = {}
+ghostengine.log = function (text) print(text) io.write("\n\n\n"..text) end
+
+local currentDate = os.date("*t")
+
+local logFile = io.open("log", "a")
+
+---@diagnostic disable-next-line: param-type-mismatch
+io.output(logFile)
+
+ghostengine.log("Hello, World! - "..currentDate.month.."/"..currentDate.day.."/"..currentDate.year.." at "..currentDate.hour..":"..currentDate.min..":"..currentDate.sec.. "\n    (Using user's local os time)")
 
 love.window.setTitle("Ghost Engine: Initalizing")
 
 -- Define local variables & functions:
 
-GhostEngine = {
-    drawCustomTypes = function(k, v)
-
-    end,
-    frame = function()
-
-    end
-}
-
-local GameLoaded = false
+local utf8 = require("utf8")
+local gameLoaded = false
 local currentInternalError = nil
-local validTypes = { "text", "image", "rect", "circle" }
+local validTypes = { "text", "image", "rect", "circle", "3D-Cube", "textbox" }
 local internalEngineErrors = {
     NoGameDetected =
     "Welcome to Ghost Engine!\nNo game.lua file detected.\nIs it in the right folder?\nRead the DOCUMENTATION file for help.\n\n[ [-- (E404) --] ]",
@@ -42,6 +50,18 @@ local internalEngineErrors = {
         love.system.getOS() ..
         ") is incompatible with Ghost Engine.\nWe apologize for the inconvenience.\n\n[ [-- (E100) --] ]"
 }
+local textboxThatIsFocused = ""
+local focusedOnTextbox = false
+
+local function file_exists(name)
+    if type(name) ~= "string" then return false end
+    local f, err = io.open(name, "r")
+    if err then return false end
+    ---@diagnostic disable-next-line: need-check-nil
+    f:close()
+    return true
+end
+
 local function _errorScreen(c)
     if currentInternalError then
         return;
@@ -49,19 +69,19 @@ local function _errorScreen(c)
     love.window.setTitle("Ghost Engine: InternalEngineError" .. c)
     currentInternalError = c
     love.keyboard.setKeyRepeat(true)
-    print("SoftHalt:", c)
+    ghostengine.log("SoftHalt: ".. c)
     CreateUI("latestError", "text", { t = internalEngineErrors[c] .. "\n(Press ESC to quit, press CTRL+C to copy)" })
     love.graphics.setBackgroundColor(0.2, 0, 0, 1)
 end
 
 local function _checkCompatSystem()
     if love.system.getOS() == "OS X" or love.system.getOS() == "Android" or love.system.getOS() == "iOS" then
-        print("[!] Using an IncompatiableSystem.")
+        ghostengine.log("[!] Using an IncompatiableSystem.")
         _errorScreen("IncompatiableSystem")
         return false
     end
     if love.system.getOS() == "Windows" then
-        print("[!] Running on Windows, may have problems!")
+        ghostengine.log("[!] Running on Windows, may have problems!")
         love.window.showMessageBox("Incompatiable System Warning",
             "You are currently running the open-source version of Ghost Engine on a Windows system.\nThe engine cannot check for a valid game.lua file.\nYou have been warned.",
             "warning", false)
@@ -85,34 +105,35 @@ local function _getGameDat()
     end
 
     if GameDat.icon then
-        print("Attempting to load Custom Icon...")
+        ghostengine.log("Attempting to load Custom Icon...")
         love.window.setIcon(GameDat.icon)
-        print("Loaded Custom Icon successfully!")
+        ghostengine.log("Loaded Custom Icon successfully!")
     end
 end
 
 local function _enforceHaltIf(condition, message)
     if not condition then
         love.window.setTitle("Ghost Engine: EnforcedHaltViaAssertion")
-        print("Halt Enbound!")
+        io.write(("\n[!!!] EnforcedHaltViaAssertion: Halt\n".. message .. "\n\nCheck your code and/or the logs for details.") or ("Halt was enforced unexpectingly.\n\nCheck your code and/or the logs for details."))
+        io.close(logFile)
     end
     assert(condition,
-    message .. "\n\nCheck your code, traceback is unhelpful here." or
-    "Halt was enforced unexpectingly.\n\nCheck with the current maintainer of Ghost Engine.")
+    message .. "\n\nCheck your code and/or the logs for details." or
+    "Halt was enforced unexpectingly.\n\nCheck your code and/or the logs for details.")
 end
 
 local function _layersExist()
-    if not Layers.UILayer then
-        print("Layers.UILayer was deleted. This would cause a halt, so it was regenerated as a blank table.")
-        Layers.UILayer = {}
+    if not ghostengine.layers.UILayer then
+        ghostengine.log("Layers.UILayer was deleted. This would cause a halt, so it was regenerated as a blank table.")
+        ghostengine.layers.UILayer = {}
     end
-    if not Layers.BackgroundLayer then
-        print("Layers.BackgroundLayer was deleted. This would cause a halt, so it was regenerated as a blank table.")
-        Layers.BackgroundLayer = {}
+    if not ghostengine.layers.BackgroundLayer then
+        ghostengine.log("Layers.BackgroundLayer was deleted. This would cause a halt, so it was regenerated as a blank table.")
+        ghostengine.layers.BackgroundLayer = {}
     end
-    if not Layers.ForegroundLayer then
-        print("Layers.ForegroundLayer was deleted. This would cause a halt, so it was regenerated as a blank table.")
-        Layers.UILayer = {}
+    if not ghostengine.layers.ForegroundLayer then
+        ghostengine.log("Layers.ForegroundLayer was deleted. This would cause a halt, so it was regenerated as a blank table.")
+        ghostengine.layers.UILayer = {}
     end
 end
 
@@ -120,6 +141,12 @@ local function _doPredeterminedTypes(k, v)
     love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
     if v.type == "text" then
         love.graphics.print(v.data.t, v.data.x or 0, v.data.y or 0)
+    elseif v.type == "textbox" then
+        love.graphics.setColor({ 0, 0, 0, 1 })
+        love.graphics.rectangle("fill", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w or #v.data.t * 1.25, v.data.h or ghostengine.fontSize)
+        love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
+        love.graphics.print(v.data.t, v.data.x, v.data.y)
+        love.graphics.rectangle("line", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w or #v.data.t * 1.25, v.data.h or ghostengine.fontSize)
     elseif v.type == "image" then
         _enforceHaltIf(file_exists(v.data.i), "Originated from CreateUI(" ..
             k ..
@@ -136,135 +163,153 @@ local function _doPredeterminedTypes(k, v)
     elseif v.type == "circle" then
         love.graphics.circle(v.data.mode or "line", v.data.x or 0, v.data.y or 0, v.data.rad,
             v.data.seg or 30)
+    elseif v.type == "3D-Cube" then
+        love.graphics.line((v.data.x or 0 ) * v.data.size, (v.data.y or 0 ) * v.data.size, (v.data.x or 0 ) * v.data.size, ((v.data.y or 0 ) + 50) * v.data.size)
+        love.graphics.line(((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 75) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 25) * v.data.size)
+        love.graphics.line(((v.data.x or 0 ) + 100) * v.data.size, ((v.data.y or 0 ) + 50) * v.data.size, ((v.data.x or 0 ) + 100) * v.data.size, (v.data.y or 0 ) * v.data.size)
+        love.graphics.line((v.data.x or 0 ) * v.data.size, (v.data.y or 0 ) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 25) * v.data.size)
+        love.graphics.line((v.data.x or 0 ) * v.data.size, ((v.data.y or 0 ) + 50) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 75) * v.data.size)
+        love.graphics.line(((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 75) * v.data.size, ((v.data.x or 0 ) + 100) * v.data.size, ((v.data.y or 0 ) + 50) * v.data.size)
+        love.graphics.line(((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 25) * v.data.size, ((v.data.x or 0 ) + 100) * v.data.size, (v.data.y or 0 ) * v.data.size)
+        love.graphics.line((v.data.x or 0 ) * v.data.size, (v.data.y or 0 ) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) - 25) * v.data.size)
+        love.graphics.line(((v.data.x or 0 ) + 100) * v.data.size, (v.data.y or 0 ) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) - 25) * v.data.size)
     end
 end
 
 local function _drawBackgroundLayer()
-    for key, value in pairs(Layers.BackgroundLayer) do
+    for key, value in pairs(ghostengine.layers.BackgroundLayer) do
         _doPredeterminedTypes(key, value)
-        GhostEngine.drawCustomTypes(key, value)
+        ghostengine.drawCustomTypes(key, value)
     end
 end
 
 local function _drawForegroundLayer()
-    for key, value in pairs(Layers.ForegroundLayer) do
+    for key, value in pairs(ghostengine.layers.ForegroundLayer) do
         _doPredeterminedTypes(key, value)
-        GhostEngine.drawCustomTypes(key, value)
+        ghostengine.drawCustomTypes(key, value)
+    end
+end
+
+local function _isInsideBox(x1, y1, x2, y2, x, y)
+    if x >= x1 and y >= y1 and x <= x2 and y <= y2 then
+        return true
+    else
+        return false
     end
 end
 
 local function _drawUiLayer()
-    for key, value in pairs(Layers.UILayer) do
+    for key, value in pairs(ghostengine.layers.UILayer) do
         _doPredeterminedTypes(key, value)
-        GhostEngine.drawCustomTypes(key, value)
+        ghostengine.drawCustomTypes(key, value)
     end
 end
 
 local function _drawOtherLayers()
-    for key, value in pairs(Layers) do
+    for key, value in pairs(ghostengine.layers) do
         if key == "BackgroundLayer" or key == "ForegroundLayer" or key == "UILayer" then
         else
-            for key, value in pairs(Layers[key]) do
+            for key, value in pairs(ghostengine.layers[key]) do
                 _doPredeterminedTypes(key, value)
-                GhostEngine.drawCustomTypes(key, value)
+                ghostengine.drawCustomTypes(key, value)
             end
         end
     end
 end
 
--- Define global variables & functions:
+-- Define global ghostengine:
 
-Layers = { BackgroundLayer = {}, ForegroundLayer = {}, UILayer = {} }
-TICKS = 0
-_SCREENWIDTH = love.graphics.getWidth()
-_SCREENHEIGHT = love.graphics.getHeight()
-_SEED = 0
-FontSize = 20
-CurrentFont = "default"
-
-function RegenerateRandomness()
-    _SEED = math.ceil(((os.time() * math.random(-5, 5)) * os.time() / 1000000) - os.clock())
-    math.randomseed(_SEED)
-    math.random()
-    math.random()
-    math.random()
-    if not TICKS == 0 then
-        print("Regenerated Randomness.")
-    end
-end
-
-function CreateNewLayer(l, merge)
-    if Layers[l] then
-        print("Attempted to make a layer that already exists:", l)
-        return;
-    end
-    local newLayer = {};
-    print("Creating new layer:", l)
-    if merge and Layers[l] then
-        print("Merging layer with same name")
-        for k, v in pairs(Layers[l]) do
-            newLayer[k] = v;
+ghostengine = { 
+    seed = 0,
+    ticks = 0,
+    fontSize = 20,
+    lastKeyPressed = nil,
+    layers = { BackgroundLayer = {}, ForegroundLayer = {}, UILayer = {} },
+    textboxes = {},
+    regenerateRandomness = function ()
+        ghostengine.seed = os.time() + math.random(-5, 5)
+        math.randomseed(ghostengine.seed)
+        if ghostengine.ticks == 0 then
+            ghostengine.log("Regenerated randomness.")
         end
-        Layers[l] = nil;
-    end
-    Layers[l] = newLayer;
-end
-
-function file_exists(name)
-    if type(name) ~= "string" then return false end
-    local f, err = io.open(name, "r")
-    if err then return false end
-    ---@diagnostic disable-next-line: need-check-nil
-    f:close()
-    return true
-end
-
-function CreateObject(layer, id, typeOf, data)
-    local validType = false
-    for _, value in ipairs(validTypes) do
-        if value == typeOf then
-            validType = true
-            break
+    end,
+    createLayer = function (l, merge)
+        if ghostengine.layers[l] then
+            ghostengine.log("Attempted to make a layer that already exists: ".. l)
+            return;
         end
-    end
-    if type(id) == "string" and type(layer) == "string" and type(data) == "table" and validType and Layers[layer] and not Layers[layer][id] then
-        data["id"] = id
-        data["destroy"] = function(self)
-            print("Destroyed ObjectId " .. self.id)
-            Layers[layer][self.id] = nil
+        local newLayer = {};
+        ghostengine.log("Creating new layer: ".. l)
+        if merge and ghostengine.layers[l] then
+            ghostengine.log("Merging layer with same name")
+            for k, v in pairs(ghostengine.layers[l]) do
+                newLayer[k] = v;
+            end
+            ghostengine.layers[l] = nil;
         end
-        Layers[layer][id] = { type = typeOf, data = data }
-        print("Created new Object in layer", layer, "with id", id, "as type", typeOf)
-        return Layers[layer][id].data
-    elseif not validType then
-        CreateUI("latestError", "text",
-            {
-                x = 0,
-                y = 0,
-                t = "CreateObject(...): \"" ..
-                typeOf .. "\" is not a valid type. Error is not fatal, so halt wasn't enforced.",
-                clr = { 1, 0, 0 }
-            })
-        print("CreateObject(...): \"" .. typeOf .. "\" is not a valid type. Error is not fatal, so halt wasn't enforced.")
-        return Layers.UILayer.latestError.data
-    elseif (not Layers[layer]) or (Layers[layer][id]) then
-        CreateUI("latestError", "text",
-            {
-                x = 0,
-                y = 0,
-                t = "CreateObject(...): Layer \"" ..
-                layer .. "\" has conflict. Error is not fatal, so halt wasn't enforced.",
-                clr = { 1, 0, 0 }
-            })
-        print("CreateObject(...): Layer \"" .. layer .. "\" has conflict. Error is not fatal, so halt wasn't enforced.")
-        return Layers.UILayer.latestError.data
-    else
-        CreateUI("latestError", "text",
-            { x = 0, y = 0, t = "CreateObject(...): An error occurred. Probably missing params.", clr = { 1, 0, 0 } })
-        print("CreateObject(...): An error occurred. Probably missing params.")
-        return Layers.UILayer.latestError.data
-    end
-end
+        ghostengine.layers[l] = newLayer;
+    end,
+    createObject = function (layer, id, typeOf, data)
+        local validType = false
+        for _, value in ipairs(validTypes) do
+            if value == typeOf then
+                validType = true
+                break
+            end
+        end
+        if type(id) == "string" and type(layer) == "string" and type(data) == "table" and validType and ghostengine.layers[layer] and not ghostengine.layers[layer][id] then
+            if layer == "BackgroundLayer" and typeOf == "textbox" then
+                ghostengine.log("[?] Textboxes (a major UI object) cannot be in the BackgroundLayer, moving to ForegroundLayer.")
+                layer = "ForegroundLayer"
+            end
+            if typeOf == "textbox" then
+                ghostengine.textboxes[id] = data
+            end
+            data["id"] = id
+            data["destroy"] = function(self)
+                ghostengine.log("Destroyed ObjectId " .. self.id)
+                ghostengine.layers[layer][self.id] = nil
+            end
+            ghostengine.layers[layer][id] = { type = typeOf, data = data }
+            ghostengine.log("Created new Object in layer ".. layer.. " with id ".. id .. " as type ".. typeOf)
+            return ghostengine.layers[layer][id].data
+        elseif not validType then
+            CreateUI("latestError", "text",
+                {
+                    x = 0,
+                    y = 0,
+                    t = "CreateObject(...): \"" ..
+                    typeOf .. "\" is not a valid type. Error is not fatal, so halt wasn't enforced.",
+                    clr = { 1, 0, 0 }
+                })
+            ghostengine.log("CreateObject(...): \"" .. typeOf .. "\" is not a valid type. Error is not fatal, so halt wasn't enforced.")
+            return ghostengine.layers.UILayer.latestError.data
+        elseif (not ghostengine.layers[layer]) or (ghostengine.layers[layer][id]) then
+            CreateUI("latestError", "text",
+                {
+                    x = 0,
+                    y = 0,
+                    t = "CreateObject(...): Layer \"" ..
+                    layer .. "\" has conflict. Error is not fatal, so halt wasn't enforced.",
+                    clr = { 1, 0, 0 }
+                })
+            ghostengine.log("CreateObject(...): Layer \"" .. layer .. "\" has conflict. Error is not fatal, so halt wasn't enforced.")
+            return ghostengine.layers.UILayer.latestError.data
+        else
+            CreateUI("latestError", "text",
+                { x = 0, y = 0, t = "CreateObject(...): An error occurred. Probably missing params.", clr = { 1, 0, 0 } })
+            ghostengine.log("CreateObject(...): An error occurred. Probably missing params.")
+            return ghostengine.layers.UILayer.latestError.data
+        end
+    end,
+    exp_create3DCube = function (x, y, size)
+        ghostengine.createObject("UILayer", "3DObject", "3D-Cube", {x=x,y=y,size=size})
+    end,
+    log = function (text) print(text) io.write("\n"..text) end,
+    drawCustomTypes = function(k, v) end,
+    frame = function() end,
+    keyDown = function (key, scancode, rep) end,
+}
 
 function CreateUI(id, typeOf, data)
     local validType = false
@@ -275,14 +320,14 @@ function CreateUI(id, typeOf, data)
         end
     end
     if type(id) == "string" and validType and type(data) == "table" then
-        print("Created UI object with id", id)
+        ghostengine.log("Created UI object with id ".. id)
         data["id"] = id
         data["destroy"] = function(self)
-            print("Destroyed ObjectId " .. self.id)
-            Layers.UILayer[self.id] = nil
+            ghostengine.log("Destroyed ObjectId " .. self.id)
+            ghostengine.layers.UILayer[self.id] = nil
         end
-        Layers.UILayer[id] = { type = typeOf, data = data }
-        return Layers.UILayer[id].data
+        ghostengine.layers.UILayer[id] = { type = typeOf, data = data }
+        return ghostengine.layers.UILayer[id].data
     elseif not validType then
         CreateUI("latestError", "text",
             {
@@ -294,22 +339,22 @@ function CreateUI(id, typeOf, data)
                 typeOf .. "): \"" .. typeOf .. "\" is not a valid type. Error is not fatal, so halt wasn't enforced.",
                 clr = { 1, 0, 0 }
             })
-        print("CreateUI(" ..
+        ghostengine.log("CreateUI(" ..
         id ..
         ", " .. typeOf .. "): \"" .. typeOf .. "\" is not a valid type. Error is not fatal, so halt wasn't enforced.")
-        return Layers.UILayer.latestError.data
+        return ghostengine.layers.UILayer.latestError.data
     else
         CreateUI("latestError", "text",
             { x = 0, y = 0, t = "CreateUI(...): An error occurred. Probably missing params.", clr = { 1, 0, 0 } })
-        print("CreateUI(...): An error occurred. Probably missing params.")
-        return Layers.UILayer.latestError.data
+        ghostengine.log("CreateUI(...): An error occurred. Probably missing params.")
+        return ghostengine.layers.UILayer.latestError.data
     end
 end
 
 function DestroyUI(id)
-    if type(id) == "string" and Layers.UILayer[id] then
-        print("Destroyed UI object with id", id)
-        Layers.UILayer[id] = nil
+    if type(id) == "string" and ghostengine.layers.UILayer[id] then
+        ghostengine.log("Destroyed UI object with id ".. id)
+        ghostengine.layers.UILayer[id] = nil
     else
         CreateUI("latestError", "text", {
             x = 0,
@@ -323,9 +368,7 @@ end
 -- Load Love functions:
 
 function love.draw()
-    love.graphics.setNewFont(FontSize)
-    _SCREENWIDTH = love.graphics.getWidth()
-    _SCREENHEIGHT = love.graphics.getHeight()
+    love.graphics.setNewFont(ghostengine.fontSize)
     _layersExist()
     _drawBackgroundLayer()
     _drawOtherLayers()
@@ -334,47 +377,85 @@ function love.draw()
 end
 
 function love.update()
-    GhostEngine.frame()
-    TICKS = TICKS + 1
+    ghostengine.frame()
+    ghostengine.ticks = ghostengine.ticks + 1
 end
 
-function love.keypressed(key)
-    if key == "escape" and not GameLoaded then
-        print("Emergency Quit.")
+function love.mousepressed(mx, my, button, istouch, presses)
+    local clickontxtbox
+    for key, value in pairs(ghostengine.textboxes) do
+        if _isInsideBox(value.x-(ghostengine.fontSize*0.5), value.y-(ghostengine.fontSize*0.5), (value.x-(ghostengine.fontSize*0.5)) + value.w, (value.y-(ghostengine.fontSize*0.5)) + value.h, mx, my) then
+            clickontxtbox = value.id
+            ghostengine.log("Focused on textbox named \""..value.id.."\".")
+        end
+    end
+    if clickontxtbox then
+        focusedOnTextbox = true
+        textboxThatIsFocused = clickontxtbox
+    elseif focusedOnTextbox then
+        focusedOnTextbox = false
+        ghostengine.log("Unfocused textbox.")
+    end
+
+end
+
+function love.keypressed(key, scancode, isrepeat)
+    if key == "escape" and not gameLoaded then
+        ghostengine.log("Emergency Quit.")
         love.event.quit()
     end
-    if key == "c" and love.keyboard.isDown("lctrl") and not GameLoaded then
-        print("Copied!")
+    if key == "c" and love.keyboard.isDown("lctrl") and not gameLoaded then
+        ghostengine.log("Copied!")
         love.system.setClipboardText("currentInternalError is " ..
             currentInternalError .. ".\nError is listed as follows:\n" .. internalEngineErrors[currentInternalError])
+    end
+    if not focusedOnTextbox then
+        ghostengine.keyDown(key, scancode, isrepeat)
+    elseif key == "backspace" then
+        local byteoffset = utf8.offset(ghostengine.textboxes[textboxThatIsFocused].t, -1)
+        if byteoffset then
+            ghostengine.textboxes[textboxThatIsFocused].t = string.sub(ghostengine.textboxes[textboxThatIsFocused].t, 1, byteoffset - 1)
+        end
+    end
+    ghostengine.lastKeyPressed = key
+end
+
+function love.textinput(t)
+    if focusedOnTextbox and (ghostengine.textboxes[textboxThatIsFocused].maxCharLimit or math.ceil(ghostengine.textboxes[textboxThatIsFocused].w/8.2)) >= #ghostengine.textboxes[textboxThatIsFocused].t then
+        ghostengine.textboxes[textboxThatIsFocused].t = ghostengine.textboxes[textboxThatIsFocused].t .. t
     end
 end
 
 -- Load "books":
 
 for key, value in pairs(love.filesystem.getDirectoryItems("_books")) do
-    print("Detected book (" .. value .. "), adding to library.")
+    ghostengine.log("Detected book (" .. value .. "), adding to library.")
     require("_books." .. value:sub(1, value:len() - 4))
 end
 
 -- Begin with loading game.
 
-RegenerateRandomness()
+ghostengine.regenerateRandomness()
 
 _checkCompatSystem()
 
 if love.system.getOS() == "Windows" then
     if not currentInternalError then
-        FontSize = 15
+        ghostengine.fontSize = 15
         require("game")
         _getGameDat()
     end
 else
     if file_exists("game.lua") and not currentInternalError then
-        FontSize = 15
+        ghostengine.fontSize = 15
         require("game")
         _getGameDat()
     elseif not currentInternalError then
         _errorScreen("NoGameDetected")
     end
+end
+
+function love.quit()
+    ghostengine.log("[✓] PRESS \n    (Program Ran and Exited System Successfully)")
+    io.close(logFile)
 end

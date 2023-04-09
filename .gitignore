@@ -1,3 +1,4 @@
 .vscode/
 game.lua
 conf.lua
+log
