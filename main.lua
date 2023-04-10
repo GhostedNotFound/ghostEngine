@@ -137,6 +137,14 @@ local function _layersExist()
     end
 end
 
+local function _isInsideBox(x1, y1, x2, y2, x, y)
+    if x >= x1 and y >= y1 and x <= x2 and y <= y2 then
+        return true
+    else
+        return false
+    end
+end
+
 local function _doPredeterminedTypes(k, v)
     love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
     if v.type == "text" then
@@ -145,7 +153,11 @@ local function _doPredeterminedTypes(k, v)
         love.graphics.setColor({ 0, 0, 0, 1 })
         love.graphics.rectangle("fill", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w or #v.data.t * 1.25, v.data.h or ghostengine.fontSize)
         love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
-        love.graphics.print(v.data.t, v.data.x, v.data.y)
+        if textboxThatIsFocused == v.data.id or _isInsideBox(v.data.x, v.data.y, v.data.x + v.data.w, v.data.h + v.data.y, love.mouse.getX(), love.mouse.getY()) then
+            love.graphics.print(v.data.t.."|", v.data.x, v.data.y)
+        else
+            love.graphics.print(v.data.t, v.data.x, v.data.y)
+        end
         love.graphics.rectangle("line", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w or #v.data.t * 1.25, v.data.h or ghostengine.fontSize)
     elseif v.type == "image" then
         _enforceHaltIf(file_exists(v.data.i), "Originated from CreateUI(" ..
@@ -187,14 +199,6 @@ local function _drawForegroundLayer()
     for key, value in pairs(ghostengine.layers.ForegroundLayer) do
         _doPredeterminedTypes(key, value)
         ghostengine.drawCustomTypes(key, value)
-    end
-end
-
-local function _isInsideBox(x1, y1, x2, y2, x, y)
-    if x >= x1 and y >= y1 and x <= x2 and y <= y2 then
-        return true
-    else
-        return false
     end
 end
 
@@ -251,6 +255,7 @@ ghostengine = {
     end,
     createObject = function (layer, id, typeOf, data)
         local validType = false
+        id = id or lume.uuid()
         for _, value in ipairs(validTypes) do
             if value == typeOf then
                 validType = true
@@ -305,7 +310,15 @@ ghostengine = {
     exp_create3DCube = function (x, y, size)
         ghostengine.createObject("UILayer", "3DObject", "3D-Cube", {x=x,y=y,size=size})
     end,
-    log = function (text) print(text) io.write("\n"..text) end,
+    log = function (text)
+        if currentDate.day == 1 and currentDate.month == 4 then
+            print("           "..text.." or did it?")
+            io.write("\n"..text.." or did it?")
+        else
+            print(text)
+            io.write("\n"..text)
+        end
+    end,
     drawCustomTypes = function(k, v) end,
     frame = function() end,
     keyDown = function (key, scancode, rep) end,
@@ -384,9 +397,20 @@ end
 function love.mousepressed(mx, my, button, istouch, presses)
     local clickontxtbox
     for key, value in pairs(ghostengine.textboxes) do
-        if _isInsideBox(value.x-(ghostengine.fontSize*0.5), value.y-(ghostengine.fontSize*0.5), (value.x-(ghostengine.fontSize*0.5)) + value.w, (value.y-(ghostengine.fontSize*0.5)) + value.h, mx, my) then
+        if _isInsideBox(value.x-(ghostengine.fontSize*0.5), value.y-(ghostengine.fontSize*0.5), (value.x-(ghostengine.fontSize*0.5)) + value.w, (value.y-(ghostengine.fontSize*0.5)) + value.h, mx, my) and not value.readOnly then
             clickontxtbox = value.id
             ghostengine.log("Focused on textbox named \""..value.id.."\".")
+        elseif value.readOnly and _isInsideBox(value.x-(ghostengine.fontSize*0.5), value.y-(ghostengine.fontSize*0.5), (value.x-(ghostengine.fontSize*0.5)) + value.w, (value.y-(ghostengine.fontSize*0.5)) + value.h, mx, my) then
+            ghostengine.log("Textbox \"".. value.id .."\" is read-only. Did not focus.")
+            if presses == 3 then
+                ghostengine.log("please stop clicking on the textbox.")
+            end
+            if presses == 4 then
+                ghostengine.log("no like seriously please stop clicking on the textbox.")
+            end
+            if presses >= 5 then
+                ghostengine.log("the logs are gonna look like chaos")
+            end
         end
     end
     if clickontxtbox then
@@ -411,10 +435,18 @@ function love.keypressed(key, scancode, isrepeat)
     end
     if not focusedOnTextbox then
         ghostengine.keyDown(key, scancode, isrepeat)
-    elseif key == "backspace" then
-        local byteoffset = utf8.offset(ghostengine.textboxes[textboxThatIsFocused].t, -1)
-        if byteoffset then
-            ghostengine.textboxes[textboxThatIsFocused].t = string.sub(ghostengine.textboxes[textboxThatIsFocused].t, 1, byteoffset - 1)
+    else
+        if key == "backspace" then
+            local byteoffset = utf8.offset(ghostengine.textboxes[textboxThatIsFocused].t, -1)
+            if byteoffset then
+                ghostengine.textboxes[textboxThatIsFocused].t = string.sub(ghostengine.textboxes[textboxThatIsFocused].t, 1, byteoffset - 1)
+            end 
+        end
+        if key == "return" and ghostengine.textboxes[textboxThatIsFocused].stopOnEnter then
+            ghostengine.textboxes[textboxThatIsFocused].readOnly = true
+            textboxThatIsFocused = ""
+            focusedOnTextbox = false
+            ghostengine.log("Unfocused & locked textbox because enter was pressed.")
         end
     end
     ghostengine.lastKeyPressed = key
