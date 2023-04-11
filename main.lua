@@ -384,9 +384,6 @@ ghostengine = {
             return ghostengine.layers.UILayer.latestError.data
         end
     end,
-    exp_create3DCube = function (x, y, size)
-        ghostengine.createObject("UILayer", "3DObject", "3D-Cube", {x=x,y=y,size=size})
-    end,
     log = function (text)
         if currentDate.day == 1 and currentDate.month == 4 then
             print("           \n\n\n"..text.." ...or did it?")
