@@ -14,7 +14,7 @@
     If not, see https://opensource.org/license/mit/.
 ]]--
 
-local lume = require "lume"
+local lume = require "lume" -- required for certain functionality, may be intergrated at some point.
 
 love.filesystem.setIdentity("Ghost Engine")
 
@@ -39,7 +39,8 @@ love.window.setTitle("Ghost Engine: Initalizing")
 local utf8 = require("utf8")
 local gameLoaded = false
 local currentInternalError = nil
-local validTypes = { "text", "image", "rect", "circle", "3D-Cube", "textbox" }
+local validTypes = { "text", "image", "rect", "circle", "textbox", "button" }
+local majorUiTypes = {"textbox", "button"}
 local internalEngineErrors = {
     NoGameDetected =
     "Welcome to Ghost Engine!\nNo game.lua file detected.\nIs it in the right folder?\nRead the DOCUMENTATION file for help.\n\n[ [-- (E404) --] ]",
@@ -59,34 +60,6 @@ local function file_exists(name)
     if err then return false end
     ---@diagnostic disable-next-line: need-check-nil
     f:close()
-    return true
-end
-
-local function _errorScreen(c)
-    if currentInternalError then
-        return;
-    end
-    love.window.setTitle("Ghost Engine: InternalEngineError" .. c)
-    currentInternalError = c
-    love.keyboard.setKeyRepeat(true)
-    ghostengine.log("SoftHalt: ".. c)
-    CreateUI("latestError", "text", { t = internalEngineErrors[c] .. "\n(Press ESC to quit, press CTRL+C to copy)" })
-    love.graphics.setBackgroundColor(0.2, 0, 0, 1)
-end
-
-local function _checkCompatSystem()
-    if love.system.getOS() == "OS X" or love.system.getOS() == "Android" or love.system.getOS() == "iOS" then
-        ghostengine.log("[!] Using an IncompatiableSystem.")
-        _errorScreen("IncompatiableSystem")
-        return false
-    end
-    if love.system.getOS() == "Windows" then
-        ghostengine.log("[!] Running on Windows, may have problems!")
-        love.window.showMessageBox("Incompatiable System Warning",
-            "You are currently running the open-source version of Ghost Engine on a Windows system.\nThe engine cannot check for a valid game.lua file.\nYou have been warned.",
-            "warning", false)
-        return true
-    end
     return true
 end
 
@@ -111,6 +84,66 @@ local function _getGameDat()
     end
 end
 
+local function _errorScreen(c)
+    if currentInternalError then
+        return;
+    end
+    love.window.setTitle("Ghost Engine: Engine Menu")
+    currentInternalError = c
+    love.keyboard.setKeyRepeat(true)
+    ghostengine.log("SoftHalt: ".. c)
+    ghostengine.log("Going to Engine Menu.")
+    love.graphics.setBackgroundColor(0.45, 0.45, 0.45)
+    CreateUI("label", "text", {t="Ghost Engine v0.3.0", x=295})
+    CreateUI("fill1", "rect", {x=-1, y=470, w=400, h=200, mode="fill", clr={0.2, 0.2, 0.2}})
+    CreateUI("border1", "rect", {x=-1, y=470, w=400, h=200})
+    CreateUI("reasoning", "text", {t="You are seeing this screen because:\ngame.lua couldn't be loaded\ngame.lua doesn't exist\nOr LeftAlt was held down\nCTRL-C to copy err", y=480, x=10})
+    ghostengine.createObject("UILayer","buttonToGit", "button", {t="Open GitHub repository", x=50, y=100, w=400, h=50})
+    ghostengine.createObject("UILayer","buttonToOpenReadme", "button", {t="Open README.md", x=50, y=170, w=400, h=50})
+    ghostengine.createObject("UILayer","buttonToClose", "button", {t="Close Ghost Engine (or press ESC)", x=50, y=240, w=400, h=50})
+    ghostengine.createObject("UILayer", "warning", "text", {t="Use textbox below to forcefully open a file in current working directory.\nBeware: bugs ahead!", x=40, y=285})
+    ghostengine.createObject("UILayer","fileInsertion", "textbox", {x=50, y=350, w=400, h=50, maxCharLimit = 30})
+    ghostengine.createObject("UILayer","buttonToLoad", "button", {t="Open this file anyway", x=480, y=350, w=250, h=50})
+    ---@diagnostic disable-next-line: duplicate-set-field
+    function ghostengine.onButtonPress(button)
+        if button == "buttonToGit" then
+            love.system.openURL("https://github.com/GhostedNotFound/ghostEngine")
+        elseif button == "buttonToOpenReadme" then
+            if not love.system.openURL("readme.md") then
+                love.system.openURL("https://github.com/GhostedNotFound/ghostEngine/blob/master/readme.md")
+            end
+        elseif button == "buttonToClose" then
+            love.event.quit()
+        elseif button == "buttonToLoad" then
+            local toLoad = ghostengine.layers.UILayer.fileInsertion.data.t
+            ghostengine.layers = {UILayer = {}, BackgroundLayer = {}, ForegroundLayer={}}
+            ghostengine.textboxes = {}
+            ghostengine.buttons = {}
+            love.graphics.setBackgroundColor(0,0,0)
+            love.window.setTitle("Ghost Engine: Custom Load")
+            require(toLoad)
+            ghostengine.fontSize = 15
+            _getGameDat()
+        end
+    end
+end
+
+local function _checkCompatSystem()
+    if love.system.getOS() == "OS X" or love.system.getOS() == "Android" or love.system.getOS() == "iOS" then
+        ghostengine.log("[!] Using an IncompatiableSystem.")
+        _errorScreen("IncompatiableSystem")
+        return false
+    end
+    if love.system.getOS() == "Windows" then
+        ghostengine.log("[!] Running on Windows, may have problems!")
+        love.window.showMessageBox("Incompatiable System Warning",
+            "You are currently running the open-source version of Ghost Engine on a Windows system.\nThe engine cannot check for a valid game.lua file.\nYou have been warned.",
+            "warning", false)
+        return true
+    end
+    return true
+end
+
 local function _enforceHaltIf(condition, message)
     if not condition then
         love.window.setTitle("Ghost Engine: EnforcedHaltViaAssertion")
@@ -133,7 +166,7 @@ local function _layersExist()
     end
     if not ghostengine.layers.ForegroundLayer then
         ghostengine.log("Layers.ForegroundLayer was deleted. This would cause a halt, so it was regenerated as a blank table.")
-        ghostengine.layers.UILayer = {}
+        ghostengine.layers.ForegroundLayer = {}
     end
 end
 
@@ -149,16 +182,35 @@ local function _doPredeterminedTypes(k, v)
     love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
     if v.type == "text" then
         love.graphics.print(v.data.t, v.data.x or 0, v.data.y or 0)
+    elseif v.type == "button" then
+        if v.data.t then
+            love.graphics.setColor({ 0, 0, 0, 1 })
+            if _isInsideBox(v.data.x-(ghostengine.fontSize*0.5), v.data.y-(ghostengine.fontSize*0.5), (v.data.x-(ghostengine.fontSize*0.5)) + v.data.w, (v.data.y-(ghostengine.fontSize*0.5)) + v.data.h, love.mouse.getX(), love.mouse.getY()) then
+                love.graphics.setColor({ 0.05, 0.05, 0.05, 1 }) 
+            end
+            love.graphics.rectangle("fill", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
+            love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
+            love.graphics.rectangle("line", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
+            love.graphics.print(v.data.t, v.data.x, v.data.y)
+        else
+            love.graphics.setColor({ 0, 0, 0, 1 })
+            if _isInsideBox(v.data.x, v.data.y, v.data.x + v.data.w, v.data.y + v.data.h, love.mouse.getX(), love.mouse.getY()) then
+                love.graphics.setColor({ 0.05, 0.05, 0.05, 1 }) 
+            end
+            love.graphics.rectangle("fill", v.data.x or 0, v.data.y or 0, v.data.w, v.data.h)
+            love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
+            love.graphics.rectangle("line", v.data.x or 0, v.data.y or 0, v.data.w, v.data.h)
+        end
     elseif v.type == "textbox" then
         love.graphics.setColor({ 0, 0, 0, 1 })
-        love.graphics.rectangle("fill", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w or #v.data.t * 1.25, v.data.h or ghostengine.fontSize)
+        love.graphics.rectangle("fill", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
         love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
         if textboxThatIsFocused == v.data.id or _isInsideBox(v.data.x, v.data.y, v.data.x + v.data.w, v.data.h + v.data.y, love.mouse.getX(), love.mouse.getY()) then
             love.graphics.print(v.data.t.."|", v.data.x, v.data.y)
         else
             love.graphics.print(v.data.t, v.data.x, v.data.y)
         end
-        love.graphics.rectangle("line", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w or #v.data.t * 1.25, v.data.h or ghostengine.fontSize)
+        love.graphics.rectangle("line", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
     elseif v.type == "image" then
         _enforceHaltIf(file_exists(v.data.i), "Originated from CreateUI(" ..
             k ..
@@ -193,6 +245,16 @@ local function _drawBackgroundLayer()
         _doPredeterminedTypes(key, value)
         ghostengine.drawCustomTypes(key, value)
     end
+end
+
+local function _inTable(table, searchFor)
+    local found = false
+    for key, value in pairs(table) do
+        if value == searchFor then
+            found = true
+        end
+    end
+    return found
 end
 
 local function _drawForegroundLayer()
@@ -230,6 +292,7 @@ ghostengine = {
     lastKeyPressed = nil,
     layers = { BackgroundLayer = {}, ForegroundLayer = {}, UILayer = {} },
     textboxes = {},
+    buttons = {},
     regenerateRandomness = function ()
         ghostengine.seed = os.time() + math.random(-5, 5)
         math.randomseed(ghostengine.seed)
@@ -254,31 +317,36 @@ ghostengine = {
         ghostengine.layers[l] = newLayer;
     end,
     createObject = function (layer, id, typeOf, data)
-        local validType = false
         id = id or lume.uuid()
-        for _, value in ipairs(validTypes) do
-            if value == typeOf then
-                validType = true
-                break
-            end
-        end
-        if type(id) == "string" and type(layer) == "string" and type(data) == "table" and validType and ghostengine.layers[layer] and not ghostengine.layers[layer][id] then
-            if layer == "BackgroundLayer" and typeOf == "textbox" then
-                ghostengine.log("[?] Textboxes (a major UI object) cannot be in the BackgroundLayer, moving to ForegroundLayer.")
+        if type(id) == "string" and type(layer) == "string" and type(data) == "table" and _inTable(validTypes, typeOf) and ghostengine.layers[layer] and not ghostengine.layers[layer][id] then
+            if layer == "BackgroundLayer" and _inTable(majorUiTypes, typeOf) then
+                ghostengine.log("[?] "..typeOf.." (a major UI object) cannot be in the BackgroundLayer, moving to ForegroundLayer.")
                 layer = "ForegroundLayer"
             end
             if typeOf == "textbox" then
                 ghostengine.textboxes[id] = data
+                if not data.t then
+                    data.t = ""
+                end
+            end
+            if typeOf == "button" then
+                ghostengine.buttons[id] = data
             end
             data["id"] = id
             data["destroy"] = function(self)
                 ghostengine.log("Destroyed ObjectId " .. self.id)
+                if ghostengine.layers[layer][self.id].type == "textbox" then
+                    ghostengine.textboxes[self.id] = nil
+                end
+                if ghostengine.layers[layer][self.id].type == "button" then
+                    ghostengine.buttons[self.id] = nil
+                end
                 ghostengine.layers[layer][self.id] = nil
             end
             ghostengine.layers[layer][id] = { type = typeOf, data = data }
             ghostengine.log("Created new Object in layer ".. layer.. " with id ".. id .. " as type ".. typeOf)
             return ghostengine.layers[layer][id].data
-        elseif not validType then
+        elseif not _inTable(validTypes, typeOf) then
             CreateUI("latestError", "text",
                 {
                     x = 0,
@@ -312,8 +380,8 @@ ghostengine = {
     end,
     log = function (text)
         if currentDate.day == 1 and currentDate.month == 4 then
-            print("           "..text.." or did it?")
-            io.write("\n"..text.." or did it?")
+            print("           \n\n\n"..text.." ...or did it?")
+            io.write("\n\n\n\n\n\n"..text.." ...or did it?")
         else
             print(text)
             io.write("\n"..text)
@@ -322,6 +390,11 @@ ghostengine = {
     drawCustomTypes = function(k, v) end,
     frame = function() end,
     keyDown = function (key, scancode, rep) end,
+    onTextboxSubmit = function (textboxId, dataSubmitted) -- If returns true (requires submitOnEnter attribute), undo readOnly. Rationale: if returned true, most likely what was inputted was invalid by the dev's standards
+        
+    end,
+    onButtonPress = function (button) 
+    end
 }
 
 function CreateUI(id, typeOf, data)
@@ -413,6 +486,16 @@ function love.mousepressed(mx, my, button, istouch, presses)
             end
         end
     end
+    for key, value in pairs(ghostengine.buttons) do
+        if value.t then
+            if _isInsideBox(value.x-(ghostengine.fontSize*0.5), value.y-(ghostengine.fontSize*0.5), (value.x-(ghostengine.fontSize*0.5)) + value.w, (value.y-(ghostengine.fontSize*0.5)) + value.h, mx, my) and not value.readOnly then
+                ghostengine.log("Pressed button named \""..value.id.."\".")
+                ghostengine.onButtonPress(value.id)
+            elseif value.readOnly and _isInsideBox(value.x-(ghostengine.fontSize*0.5), value.y-(ghostengine.fontSize*0.5), (value.x-(ghostengine.fontSize*0.5)) + value.w, (value.y-(ghostengine.fontSize*0.5)) + value.h, mx, my) then
+                ghostengine.log("Button \"".. value.id .."\" is read-only. Did not focus.")
+            end
+        end
+    end
     if clickontxtbox then
         focusedOnTextbox = true
         textboxThatIsFocused = clickontxtbox
@@ -444,9 +527,13 @@ function love.keypressed(key, scancode, isrepeat)
         end
         if key == "return" and ghostengine.textboxes[textboxThatIsFocused].stopOnEnter then
             ghostengine.textboxes[textboxThatIsFocused].readOnly = true
-            textboxThatIsFocused = ""
-            focusedOnTextbox = false
             ghostengine.log("Unfocused & locked textbox because enter was pressed.")
+            focusedOnTextbox = false
+            if ghostengine.onTextboxSubmit(textboxThatIsFocused, ghostengine.textboxes[textboxThatIsFocused].t) then -- Rationale: if returned true, most likely what was inputted was invalid by the dev's standards
+                ghostengine.textboxes[textboxThatIsFocused].readOnly = false
+                ghostengine.log("Undid changes, onTextboxSubmit returned true.")
+            end
+            textboxThatIsFocused = ""
         end
     end
     ghostengine.lastKeyPressed = key
@@ -489,5 +576,8 @@ end
 
 function love.quit()
     ghostengine.log("[✓] PRESS \n    (Program Ran and Exited System Successfully)")
+    if currentDate.day == 1 and currentDate.month == 4 then
+        ghostengine.log("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse porttitor accumsan urna sit amet finibus. Sed tincidunt laoreet purus vitae maximus. Aliquam erat volutpat. Integer tincidunt libero leo, eget vehicula odio fringilla quis. Donec tortor nibh, pellentesque at consequat vitae, pellentesque ut dolor. Duis sit amet ipsum in lorem aliquam pharetra. Ut condimentum convallis ex. Aliquam quis mauris elit. Vestibulum laoreet velit vel libero vulputate porttitor. Donec porttitor congue elit, sit amet iaculis neque pellentesque sit amet. Suspendisse cursus quis ante nec rhoncus.")
+    end
     io.close(logFile)
 end
