@@ -49,7 +49,8 @@ local internalEngineErrors = {
     Test = "Success.\n\n[ [-- (E000) --] ]",
     IncompatiableSystem = "Your system (" ..
         love.system.getOS() ..
-        ") is incompatible with Ghost Engine.\nWe apologize for the inconvenience.\n\n[ [-- (E100) --] ]"
+        ") is incompatible with Ghost Engine.\nWe apologize for the inconvenience.\n\n[ [-- (E100) --] ]",
+    LeftAltHeld = "LeftAlt was held down.\n\n[ [-- (E001) --] ]"
 }
 local textboxThatIsFocused = ""
 local focusedOnTextbox = false
@@ -88,42 +89,50 @@ local function _errorScreen(c)
     if currentInternalError then
         return;
     end
-    love.window.setTitle("Ghost Engine: Engine Menu")
-    currentInternalError = c
-    love.keyboard.setKeyRepeat(true)
-    ghostengine.log("SoftHalt: ".. c)
-    ghostengine.log("Going to Engine Menu.")
-    love.graphics.setBackgroundColor(0.45, 0.45, 0.45)
-    CreateUI("label", "text", {t="Ghost Engine v0.3.0", x=295})
-    CreateUI("fill1", "rect", {x=-1, y=470, w=400, h=200, mode="fill", clr={0.2, 0.2, 0.2}})
-    CreateUI("border1", "rect", {x=-1, y=470, w=400, h=200})
-    CreateUI("reasoning", "text", {t="You are seeing this screen because:\ngame.lua couldn't be loaded\ngame.lua doesn't exist\nOr LeftAlt was held down\nCTRL-C to copy err", y=480, x=10})
-    ghostengine.createObject("UILayer","buttonToGit", "button", {t="Open GitHub repository", x=50, y=100, w=400, h=50})
-    ghostengine.createObject("UILayer","buttonToOpenReadme", "button", {t="Open README.md", x=50, y=170, w=400, h=50})
-    ghostengine.createObject("UILayer","buttonToClose", "button", {t="Close Ghost Engine (or press ESC)", x=50, y=240, w=400, h=50})
-    ghostengine.createObject("UILayer", "warning", "text", {t="Use textbox below to forcefully open a file in current working directory.\nBeware: bugs ahead!", x=40, y=285})
-    ghostengine.createObject("UILayer","fileInsertion", "textbox", {x=50, y=350, w=400, h=50, maxCharLimit = 30})
-    ghostengine.createObject("UILayer","buttonToLoad", "button", {t="Open this file anyway", x=480, y=350, w=250, h=50})
-    ---@diagnostic disable-next-line: duplicate-set-field
-    function ghostengine.onButtonPress(button)
-        if button == "buttonToGit" then
-            love.system.openURL("https://github.com/GhostedNotFound/ghostEngine")
-        elseif button == "buttonToOpenReadme" then
-            if not love.system.openURL("readme.md") then
-                love.system.openURL("https://github.com/GhostedNotFound/ghostEngine/blob/master/readme.md")
+    if c == "IncompatiableSystem" then
+        love.graphics.setBackgroundColor(0.8,0,0)
+        CreateUI("warning", "text", {t="Your system is incompatible."})
+        currentInternalError = c
+        return;
+    else
+        love.window.setTitle("Ghost Engine: Engine Menu")
+        currentInternalError = c
+        love.keyboard.setKeyRepeat(true)
+        ghostengine.log("SoftHalt: ".. c)
+        ghostengine.log("Going to Engine Menu.")
+        love.graphics.setBackgroundColor(0.45, 0.45, 0.45)
+        CreateUI("label", "text", {t="Ghost Engine v0.3.0", x=295})
+        CreateUI("fill1", "rect", {x=-1, y=470, w=400, h=200, mode="fill", clr={0.2, 0.2, 0.2}})
+        CreateUI("border1", "rect", {x=-1, y=470, w=400, h=200})
+        CreateUI("reasoning", "text", {t="You are seeing this screen because:\ngame.lua couldn't be loaded\ngame.lua doesn't exist\nOr LeftAlt was held down\nCTRL-C to copy err", y=480, x=10})
+        ghostengine.createObject("UILayer","buttonToGit", "button", {t="Open GitHub repository", x=50, y=100, w=400, h=50})
+        ghostengine.createObject("UILayer","buttonToOpenReadme", "button", {t="Open README.md", x=50, y=170, w=400, h=50})
+        ghostengine.createObject("UILayer","buttonToClose", "button", {t="Close Ghost Engine (or press ESC)", x=50, y=240, w=400, h=50})
+        ghostengine.createObject("UILayer", "warning", "text", {t="Use textbox below to forcefully open a file in current working directory.\nBeware: bugs ahead!", x=40, y=285})
+        ghostengine.createObject("UILayer","fileInsertion", "textbox", {x=50, y=350, w=400, h=50, maxCharLimit = 30})
+        ghostengine.createObject("UILayer","buttonToLoad", "button", {t="Open this file anyway", x=480, y=350, w=250, h=50})
+        ---@diagnostic disable-next-line: duplicate-set-field
+        function ghostengine.onButtonPress(button)
+            if button == "buttonToGit" then
+                love.system.openURL("https://github.com/GhostedNotFound/ghostEngine")
+            elseif button == "buttonToOpenReadme" then
+                if not love.system.openURL("readme.md") then
+                    love.system.openURL("https://github.com/GhostedNotFound/ghostEngine/blob/master/readme.md")
+                end
+            elseif button == "buttonToClose" then
+                love.event.quit()
+            elseif button == "buttonToLoad" then
+                local toLoad = ghostengine.layers.UILayer.fileInsertion.data.t
+                ghostengine.layers = {UILayer = {}, BackgroundLayer = {}, ForegroundLayer={}}
+                ghostengine.textboxes = {}
+                ghostengine.buttons = {}
+                love.graphics.setBackgroundColor(0,0,0)
+                love.window.setTitle("Ghost Engine: Custom Load")
+                currentInternalError = false
+                require(toLoad)
+                ghostengine.fontSize = 15
+                _getGameDat()
             end
-        elseif button == "buttonToClose" then
-            love.event.quit()
-        elseif button == "buttonToLoad" then
-            local toLoad = ghostengine.layers.UILayer.fileInsertion.data.t
-            ghostengine.layers = {UILayer = {}, BackgroundLayer = {}, ForegroundLayer={}}
-            ghostengine.textboxes = {}
-            ghostengine.buttons = {}
-            love.graphics.setBackgroundColor(0,0,0)
-            love.window.setTitle("Ghost Engine: Custom Load")
-            require(toLoad)
-            ghostengine.fontSize = 15
-            _getGameDat()
         end
     end
 end
@@ -558,14 +567,18 @@ ghostengine.regenerateRandomness()
 
 _checkCompatSystem()
 
+if love.keyboard.isDown("lalt") then
+    _errorScreen("LeftAltHeld")
+end
+
 if love.system.getOS() == "Windows" then
-    if not currentInternalError then
+    if not currentInternalError or love.keyboard.isDown("lalt") then
         ghostengine.fontSize = 15
         require("game")
         _getGameDat()
     end
 else
-    if file_exists("game.lua") and not currentInternalError then
+    if file_exists("game.lua") and not currentInternalError or love.keyboard.isDown("lalt") then
         ghostengine.fontSize = 15
         require("game")
         _getGameDat()
