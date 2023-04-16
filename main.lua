@@ -14,6 +14,16 @@
     If not, see https://opensource.org/license/mit/.
 ]]--
 
+if os.getenv("LOCAL_LUA_DEBUGGER_VSCODE") == "1" then
+    local lldebugger = require("lldebugger")
+    lldebugger.start()
+    local run = love.run
+    function love.run(...)
+        local f = lldebugger.call(run, false, ...)
+        return function(...) return lldebugger.call(f, false, ...) end
+    end
+end
+
 local lume = require "lume" -- required for certain functionality, may be intergrated at some point.
 
 love.filesystem.setIdentity("Ghost Engine")
@@ -21,7 +31,7 @@ love.filesystem.setIdentity("Ghost Engine")
 love.filesystem.write("test.txt", "Hi")
 
 ghostengine = {}
-ghostengine.log = function (text) print(text) io.write("\n\n\n"..text) end
+ghostengine.log = function (text) print(text) io.write(text) end
 
 local currentDate = os.date("*t")
 
@@ -36,6 +46,8 @@ love.window.setTitle("Ghost Engine: Initalizing")
 
 -- Define local variables & functions:
 
+local preparedebugmode = false
+local debugmode = false
 local utf8 = require("utf8")
 local gameLoaded = false
 local currentInternalError = nil
@@ -54,6 +66,7 @@ local internalEngineErrors = {
 }
 local textboxThatIsFocused = ""
 local focusedOnTextbox = false
+local camera = {x=0,y=0}
 
 local function file_exists(name)
     if type(name) ~= "string" then return false end
@@ -123,6 +136,23 @@ local function _errorScreen(c)
                 love.event.quit()
             elseif button == "buttonToLoad" then
                 local toLoad = ghostengine.layers.UILayer.fileInsertion.data.t
+                if toLoad == "--debug-mode" and not preparedebugmode then
+                    ghostengine.log("preparing debug mode")
+                    preparedebugmode = true
+                    ghostengine.layers.UILayer.warning.data.t = "\nenter superuser authetication"
+                    ghostengine.layers.UILayer.fileInsertion.data.t = ""
+                    return;
+                end
+                if toLoad == love.system.getOS():lower().."-debug" and preparedebugmode and not debugmode then
+                    debugmode = true
+                    ghostengine.log("debug mode active")
+                    ghostengine.layers.UILayer.warning.data.t = "\ndebugmode active"
+                    ghostengine.layers.UILayer.fileInsertion.data.t = ""
+                    return;
+                end
+                if toLoad == "" then
+                    return;
+                end
                 ghostengine.layers = {UILayer = {}, BackgroundLayer = {}, ForegroundLayer={}}
                 ghostengine.textboxes = {}
                 ghostengine.buttons = {}
@@ -189,37 +219,40 @@ end
 
 local function _doPredeterminedTypes(k, v)
     love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
+    local coords = {x=v.data.x or 0, y=v.data.y or 0}
+    coords.x = coords.x + camera.x
+    coords.y = coords.y + camera.y
     if v.type == "text" then
-        love.graphics.print(v.data.t, v.data.x or 0, v.data.y or 0)
+        love.graphics.print(v.data.t, coords.x, coords.y)
     elseif v.type == "button" then
         if v.data.t then
             love.graphics.setColor({ 0, 0, 0, 1 })
-            if _isInsideBox(v.data.x-(ghostengine.fontSize*0.5), v.data.y-(ghostengine.fontSize*0.5), (v.data.x-(ghostengine.fontSize*0.5)) + v.data.w, (v.data.y-(ghostengine.fontSize*0.5)) + v.data.h, love.mouse.getX(), love.mouse.getY()) then
+            if _isInsideBox(coords.x-(ghostengine.fontSize*0.5), coords.y-(ghostengine.fontSize*0.5), (coords.x-(ghostengine.fontSize*0.5)) + v.data.w, (coords.y-(ghostengine.fontSize*0.5)) + v.data.h, love.mouse.getX(), love.mouse.getY()) then
                 love.graphics.setColor({ 0.05, 0.05, 0.05, 1 }) 
             end
-            love.graphics.rectangle("fill", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
+            love.graphics.rectangle("fill", (coords.x-(ghostengine.fontSize*0.5)), (coords.y-(ghostengine.fontSize*0.5)), v.data.w, v.data.h)
             love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
-            love.graphics.rectangle("line", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
-            love.graphics.print(v.data.t, v.data.x, v.data.y)
+            love.graphics.rectangle("line", (coords.x-(ghostengine.fontSize*0.5)), (coords.y-(ghostengine.fontSize*0.5)), v.data.w, v.data.h)
+            love.graphics.print(v.data.t, coords.x, coords.y)
         else
             love.graphics.setColor({ 0, 0, 0, 1 })
-            if _isInsideBox(v.data.x, v.data.y, v.data.x + v.data.w, v.data.y + v.data.h, love.mouse.getX(), love.mouse.getY()) then
+            if _isInsideBox(coords.x, coords.y, coords.x + v.data.w, coords.y + v.data.h, love.mouse.getX(), love.mouse.getY()) then
                 love.graphics.setColor({ 0.05, 0.05, 0.05, 1 }) 
             end
-            love.graphics.rectangle("fill", v.data.x or 0, v.data.y or 0, v.data.w, v.data.h)
+            love.graphics.rectangle("fill", coords.x, coords.y, v.data.w, v.data.h)
             love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
-            love.graphics.rectangle("line", v.data.x or 0, v.data.y or 0, v.data.w, v.data.h)
+            love.graphics.rectangle("line", coords.x, coords.y, v.data.w, v.data.h)
         end
     elseif v.type == "textbox" then
         love.graphics.setColor({ 0, 0, 0, 1 })
-        love.graphics.rectangle("fill", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
+        love.graphics.rectangle("fill", (coords.x-(ghostengine.fontSize*0.5)) or 0, (coords.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
         love.graphics.setColor(v.data.clr or { 1, 1, 1, 1 })
-        if textboxThatIsFocused == v.data.id or _isInsideBox(v.data.x, v.data.y, v.data.x + v.data.w, v.data.h + v.data.y, love.mouse.getX(), love.mouse.getY()) then
-            love.graphics.print(v.data.t.."|", v.data.x, v.data.y)
+        if textboxThatIsFocused == v.data.id or _isInsideBox(coords.x, coords.y, coords.x + v.data.w, v.data.h + coords.y, love.mouse.getX(), love.mouse.getY()) then
+            love.graphics.print(v.data.t.."|", coords.x, coords.y)
         else
-            love.graphics.print(v.data.t, v.data.x, v.data.y)
+            love.graphics.print(v.data.t, coords.x, coords.y)
         end
-        love.graphics.rectangle("line", (v.data.x-(ghostengine.fontSize*0.5)) or 0, (v.data.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
+        love.graphics.rectangle("line", (coords.x-(ghostengine.fontSize*0.5)) or 0, (coords.y-(ghostengine.fontSize*0.5)) or 0, v.data.w, v.data.h)
     elseif v.type == "image" then
         _enforceHaltIf(file_exists(v.data.i), "Originated from CreateUI(" ..
             k ..
@@ -229,23 +262,23 @@ local function _doPredeterminedTypes(k, v)
             v.data.i ..
             "\"}): Image (" ..
             v.data.i .. ") is non-existant.\nCurrent version of Ghost Engine has flaws, so halt was enforced.")
-        love.graphics.draw(love.graphics.newImage(v.data.i), v.data.x or 0, v.data.y or 0)
+        love.graphics.draw(love.graphics.newImage(v.data.i), coords.x, coords.y)
     elseif v.type == "rect" then
-        love.graphics.rectangle(v.data.mode or "line", v.data.x or 0, v.data.y or 0, v.data.w,
+        love.graphics.rectangle(v.data.mode or "line", coords.x, coords.y, v.data.w,
             v.data.h)
     elseif v.type == "circle" then
-        love.graphics.circle(v.data.mode or "line", v.data.x or 0, v.data.y or 0, v.data.rad,
+        love.graphics.circle(v.data.mode or "line", coords.x, coords.y, v.data.rad,
             v.data.seg or 30)
     elseif v.type == "3D-Cube" then
-        love.graphics.line((v.data.x or 0 ) * v.data.size, (v.data.y or 0 ) * v.data.size, (v.data.x or 0 ) * v.data.size, ((v.data.y or 0 ) + 50) * v.data.size)
-        love.graphics.line(((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 75) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 25) * v.data.size)
-        love.graphics.line(((v.data.x or 0 ) + 100) * v.data.size, ((v.data.y or 0 ) + 50) * v.data.size, ((v.data.x or 0 ) + 100) * v.data.size, (v.data.y or 0 ) * v.data.size)
-        love.graphics.line((v.data.x or 0 ) * v.data.size, (v.data.y or 0 ) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 25) * v.data.size)
-        love.graphics.line((v.data.x or 0 ) * v.data.size, ((v.data.y or 0 ) + 50) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 75) * v.data.size)
-        love.graphics.line(((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 75) * v.data.size, ((v.data.x or 0 ) + 100) * v.data.size, ((v.data.y or 0 ) + 50) * v.data.size)
-        love.graphics.line(((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) + 25) * v.data.size, ((v.data.x or 0 ) + 100) * v.data.size, (v.data.y or 0 ) * v.data.size)
-        love.graphics.line((v.data.x or 0 ) * v.data.size, (v.data.y or 0 ) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) - 25) * v.data.size)
-        love.graphics.line(((v.data.x or 0 ) + 100) * v.data.size, (v.data.y or 0 ) * v.data.size, ((v.data.x or 0 ) + 50) * v.data.size, ((v.data.y or 0 ) - 25) * v.data.size)
+        love.graphics.line(coords.x * v.data.size, coords.y * v.data.size, coords.x * v.data.size, (coords.y + 50) * v.data.size)
+        love.graphics.line((coords.x + 50) * v.data.size, (coords.y + 75) * v.data.size, (coords.x + 50) * v.data.size, (coords.y + 25) * v.data.size)
+        love.graphics.line((coords.x + 100) * v.data.size, (coords.y + 50) * v.data.size, (coords.x + 100) * v.data.size, coords.y * v.data.size)
+        love.graphics.line(coords.x * v.data.size, coords.y * v.data.size, (coords.x + 50) * v.data.size, (coords.y + 25) * v.data.size)
+        love.graphics.line(coords.x * v.data.size, (coords.y + 50) * v.data.size, (coords.x + 50) * v.data.size, (coords.y + 75) * v.data.size)
+        love.graphics.line((coords.x + 50) * v.data.size, (coords.y + 75) * v.data.size, (coords.x + 100) * v.data.size, (coords.y + 50) * v.data.size)
+        love.graphics.line((coords.x + 50) * v.data.size, (coords.y + 25) * v.data.size, (coords.x + 100) * v.data.size, coords.y * v.data.size)
+        love.graphics.line(coords.x * v.data.size, coords.y * v.data.size, (coords.x + 50) * v.data.size, (coords.y - 25) * v.data.size)
+        love.graphics.line((coords.x + 100) * v.data.size, coords.y * v.data.size, (coords.x + 50) * v.data.size, (coords.y - 25) * v.data.size)
     end
 end
 
@@ -393,6 +426,24 @@ ghostengine = {
             io.write("\n"..text)
         end
     end,
+    camera = {
+        x = camera.x,
+        y = camera.y,
+        setCoordinates = function (x,y)
+            camera.x = x
+            camera.y = y
+        end,
+        changeCoordinatesBy = function (x,y)
+            camera.x = camera.x + x
+            camera.y = camera.y + y
+        end,
+        changeXBy = function (x)
+            camera.x = camera.x + x
+        end,
+        changeYBy = function (y)
+            camera.y = camera.y + y
+        end
+    },
     drawCustomTypes = function(k, v) end,
     frame = function() end,
     keyDown = function (key, scancode, rep) end,
@@ -460,6 +511,8 @@ end
 -- Load Love functions:
 
 function love.draw()
+    ghostengine.camera.x = camera.x
+    ghostengine.camera.y = camera.y
     love.graphics.setNewFont(ghostengine.fontSize)
     _layersExist()
     _drawBackgroundLayer()
@@ -474,6 +527,8 @@ function love.update()
 end
 
 function love.mousepressed(mx, my, button, istouch, presses)
+    mx = love.mouse.getX() - camera.x
+    my = love.mouse.getY() - camera.y
     local clickontxtbox
     for key, value in pairs(ghostengine.textboxes) do
         if _isInsideBox(value.x-(ghostengine.fontSize*0.5), value.y-(ghostengine.fontSize*0.5), (value.x-(ghostengine.fontSize*0.5)) + value.w, (value.y-(ghostengine.fontSize*0.5)) + value.h, mx, my) and not value.readOnly then
@@ -521,6 +576,10 @@ function love.keypressed(key, scancode, isrepeat)
         ghostengine.log("Copied!")
         love.system.setClipboardText("currentInternalError is " ..
             currentInternalError .. ".\nError is listed as follows:\n" .. internalEngineErrors[currentInternalError])
+    end
+    if key == "d" and love.keyboard.isDown("lctrl") and love.keyboard.isDown("lalt") and debugmode then
+        ghostengine.log("debugKeybindPressed")
+        debug.debug()
     end
     if not focusedOnTextbox then
         ghostengine.keyDown(key, scancode, isrepeat)
@@ -585,9 +644,9 @@ else
 end
 
 function love.quit()
-    ghostengine.log("[✓] PRESS \n    (Program Ran and Exited System Successfully)")
+    ghostengine.log("Ran for ".. os.clock() .." in OSCLOCK\n[✓] PRESS \n    (Program Ran and Exited System Successfully)".."\n\n\n")
     if currentDate.day == 1 and currentDate.month == 4 then
-        ghostengine.log("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse porttitor accumsan urna sit amet finibus. Sed tincidunt laoreet purus vitae maximus. Aliquam erat volutpat. Integer tincidunt libero leo, eget vehicula odio fringilla quis. Donec tortor nibh, pellentesque at consequat vitae, pellentesque ut dolor. Duis sit amet ipsum in lorem aliquam pharetra. Ut condimentum convallis ex. Aliquam quis mauris elit. Vestibulum laoreet velit vel libero vulputate porttitor. Donec porttitor congue elit, sit amet iaculis neque pellentesque sit amet. Suspendisse cursus quis ante nec rhoncus.")
+        ghostengine.log("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse porttitor accumsan urna sit amet finibus. Sed tincidunt laoreet purus vitae maximus. Aliquam erat volutpat. Integer tincidunt libero leo, eget vehicula odio fringilla quis. Donec tortor nibh, pellentesque at consequat vitae, pellentesque ut dolor. Duis sit amet ipsum in lorem aliquam pharetra. Ut condimentum convallis ex. Aliquam quis mauris elit. Vestibulum laoreet velit vel libero vulputate porttitor. Donec porttitor congue elit, sit amet iaculis neque pellentesque sit amet. Suspendisse cursus quis ante nec rhoncus.".."\n\n\n")
     end
     io.close(logFile)
 end
