@@ -14,6 +14,16 @@
     If not, see https://opensource.org/license/mit/.
 ]]--
 
+local lume = require "lume" -- required for certain functionality, may be intergrated at some point.
+
+local enet = require "enet"
+
+local enethost = nil
+local hostevent = nil
+local clientpeer = nil
+local enetclient = nil
+local enetnick = lume.uuid()
+
 if os.getenv("LOCAL_LUA_DEBUGGER_VSCODE") == "1" then
     local lldebugger = require("lldebugger")
     lldebugger.start()
@@ -23,8 +33,6 @@ if os.getenv("LOCAL_LUA_DEBUGGER_VSCODE") == "1" then
         return function(...) return lldebugger.call(f, false, ...) end
     end
 end
-
-local lume = require "lume" -- required for certain functionality, may be intergrated at some point.
 
 love.filesystem.setIdentity("Ghost Engine")
 
@@ -114,7 +122,7 @@ local function _errorScreen(c)
         ghostengine.log("SoftHalt: ".. c)
         ghostengine.log("Going to Engine Menu.")
         love.graphics.setBackgroundColor(0.45, 0.45, 0.45)
-        CreateUI("label", "text", {t="Ghost Engine v0.3.0", x=295})
+        CreateUI("label", "text", {t="Ghost Engine v0.4.0", x=295})
         CreateUI("fill1", "rect", {x=-1, y=470, w=400, h=200, mode="fill", clr={0.2, 0.2, 0.2}})
         CreateUI("border1", "rect", {x=-1, y=470, w=400, h=200})
         CreateUI("reasoning", "text", {t="You are seeing this screen because:\ngame.lua couldn't be loaded\ngame.lua doesn't exist\nOr LeftAlt was held down\nCTRL-C to copy err", y=480, x=10})
@@ -426,6 +434,55 @@ ghostengine = {
             io.write("\n"..text)
         end
     end,
+    network = {
+        connections = {},
+        host = function(port)
+            if type(port) ~= "number" then
+                port = nil
+            end
+            port = port or 12211 -- 12211 -> 12 21 1 -> 12(L) 21(U) 1(A) -> LUA
+            -- establish host for receiving msg
+            enethost = enet.host_create("localhost:"..port)
+
+            -- establish a connection to host on same PC
+            enetclient = enet.host_create()
+            clientpeer = enetclient:connect("localhost:"..port)
+            ghostengine.log("Hosting a server on localhost:"..port..".")
+            ghostengine.log("[ ! ] Do not, for any reason, use the connections table inside OnClientDataGet().")
+        end,
+        server = function (port)
+            if type(port) ~= "number" then
+                port = nil
+            end
+            port = port or 12211 -- 12211 -> 12 21 1 -> 12(L) 21(U) 1(A) -> LUA
+            -- establish host for receiving msg
+            enethost = enet.host_create("localhost:"..port)
+            ghostengine.log("Created a server on localhost:"..port..", but did not connect to it.")
+        end,
+        client = function (nick, port)
+            if type(port) ~= "number" then
+                port = nil
+            end
+            if type(nick) ~= "string" then
+                nick = nil
+            end
+            port = port or 12211 -- 12211 -> 12 21 1 -> 12(L) 21(U) 1(A) -> LUA
+            enetnick = nick or lume.uuid()
+            enetclient = enet.host_create()
+            clientpeer = enetclient:connect("localhost:"..port)
+            ghostengine.log("Connected to a server on localhost:"..port.." if any.\nDisconnection may occur if keepalive fails.")
+        end,
+        OnAddConnection = function (peer)
+            
+        end,
+        OnRemoveConnection = function (peer)
+            
+        end,
+        OnServerGet = function (data)
+            
+        end
+    },
+    socket = require("socket"),
     camera = {
         x = camera.x,
         y = camera.y,
@@ -523,6 +580,42 @@ end
 
 function love.update()
     ghostengine.frame()
+    if enethost then
+        local event = enethost:service(100)
+        while event do
+          if event.type == "connect" then
+            ghostengine.network.connections[tostring(event.peer)] = event.peer
+            ghostengine.log("New Client Connected ("..tostring(event.peer)..")")
+            ghostengine.network.OnAddConnection(event.peer)
+          elseif event.type == "disconnect" then
+            ghostengine.network.connections[tostring(event.peer)] = nil
+            ghostengine.log("Client Disconnected ("..tostring(event.peer)..")")
+            ghostengine.network.OnRemoveConnection(event.peer)
+          elseif event.type == "receive" then
+            ghostengine.log("Data Get From ("..tostring(event.peer).."), "..event.data)
+            ghostengine.network.OnServerGet(event.data)
+          end
+          event = enethost:service()
+        end
+    end
+    if enetclient then
+        local event = enetclient:service(100)
+        while event do
+            if event.type == "connect" then
+              ghostengine.network.connections[tostring(event.peer)] = event.peer
+              ghostengine.log("Other Client Connected")
+              ghostengine.network.OnAddConnection(event.peer)
+            elseif event.type == "disconnect" then
+              ghostengine.network.connections[tostring(event.peer)] = nil
+              ghostengine.log("Other Client Disconnected")
+              ghostengine.network.OnRemoveConnection(event.peer)
+            elseif event.type == "receive" then
+              ghostengine.log("Server Sent Data "..event.data)
+              ghostengine.network.OnServerGet(event.data)
+            end
+            event = enethost:service()
+          end
+    end
     ghostengine.ticks = ghostengine.ticks + 1
 end
 
